@@ -32,7 +32,7 @@ const sendEmail = async (to, subject, text, html) => {
   try {
     const transporter = await createTransporter();  // fresh token every time
     const info = await transporter.sendMail({
-      from: `"Axos Bank" <${process.env.EMAIL_USER}>`,
+      from: `"0diyas" <${process.env.EMAIL_USER}>`,
       to,
       subject,
       text,
