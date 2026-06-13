@@ -2,7 +2,7 @@ const transactionModel = require("../models/transaction.model");
 const ledgerModel = require("../models/ledger.model");
 const accountModel = require("../models/account.model");
 const emailService = require("../services/email.services");
-const userModel = require('../models/user.model')
+const userModel = require("../models/user.model");
 const { default: mongoose } = require("mongoose");
 
 // createTransaction function flow
@@ -150,22 +150,38 @@ const createTransaction = async (req, res) => {
     await session.commitTransaction();
 
     // 11 - email notification
-    // const senderUser = await userModel.findById(senderAccount.user);
+    try {
+      const receiverUser = await userModel.findById(receiverAccount.user);
 
-    // const receiverUser = await userModel.findById(receiverAccount.user);
-    await emailService.sendTransactionSuccessEmail(
-      req.user.email,
-      req.user.name,
-      amount,
-      toAccount,
-    );
+      // sender email
+      await emailService.sendTransactionSenderEmail(
+        req.user.email,
+        req.user.name,
+        amount,
+        receiverUser.name,
+      );
+
+      // receiver email
+      await emailService.sendTransactionReceivedEmail(
+        receiverUser.email,
+        receiverUser.name,
+        amount,
+        req.user.name,
+      );
+    } catch (emailError) {
+      console.error("Email Error:", emailError);
+    }
 
     return res.status(201).json({
       message: "Transaction completed successfully",
       transaction: transactionDoc,
     });
   } catch (error) {
-    await session.abortTransaction();
+    if (session.inTransaction()) {
+      await session.abortTransaction();
+    }
+
+    // console.error(error);
 
     return res.status(500).json({
       message: "Transaction failed. Please try again later",
@@ -174,9 +190,6 @@ const createTransaction = async (req, res) => {
     await session.endSession();
   }
 };
-
-
-
 
 // create createInitialFunds function (by using system user)
 const createInitialFundsTransaction = async (req, res) => {

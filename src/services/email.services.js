@@ -70,37 +70,116 @@ Odiseus Pay Team
   await sendEmail(userEmail, subject, text, html);
 };
 
-const sendTransactionSuccessEmail = async (
+const sendTransactionSenderEmail = async (
   userEmail,
   name,
   amount,
-  toAccount,
+  receiverName,
 ) => {
   const subject = "Payment Successful - Odiseus Pay";
+  // console.log(userEmail)
+  // console.log(receiverName)
 
   const text = `
 Hello ${name},
 
 Your payment has been successfully processed through Odiseus Pay.
 
-Amount: $${amount}
-Sent To: ${toAccount}
+Transaction Details:
+Amount: PK ${amount}
+Sent To: ${receiverName}
+Status: COMPLETED
 
 If you did not authorize this transaction, please contact support immediately.
 
-Best regards,  
+Best regards,
 Odiseus Pay Team
 `;
 
   const html = `
-        <h2>Hello ${name},</h2>
-        <p>Your payment has been <strong style="color:green;">successfully processed</strong></p>
-        <p><strong>Amount:</strong> $${amount}</p>
-        <p><strong>Sent To:</strong> ${toAccount}</p>
-        <p>If you did not authorize this transaction, please contact support immediately.</p>
-        <br/>
-        <p>Best regards,<br/><strong>Odiseus Pay Team</strong></p>
-    `;
+    <h2>Hello ${name},</h2>
+
+    <p>
+      Your payment has been
+      <strong style="color:green;">successfully processed</strong>.
+    </p>
+
+    <h3>Transaction Details</h3>
+    <p><strong>Amount:</strong> PK ${amount}</p>
+    <p><strong>Sent To:</strong> ${receiverName}</p>
+    <p><strong>Status:</strong> COMPLETED</p>
+
+    <p>
+      If you did not authorize this transaction, please contact support
+      immediately.
+    </p>
+
+    <br />
+
+    <p>
+      Best regards,<br />
+      <strong>Odiseus Pay Team</strong>
+    </p>
+  `;
+
+  await sendEmail(userEmail, subject, text, html);
+};
+
+const sendTransactionReceivedEmail = async (
+  userEmail,
+  name,
+  amount,
+  senderName,
+) => {
+  const subject = "Payment Received - Odiseus Pay";
+  // console.log(userEmail);
+  // console.log(senderName);
+
+  const text = `
+Hello ${name},
+
+You have successfully received a payment through Odiseus Pay.
+
+Transaction Details:
+Amount Received: PK ${amount}
+Sent By: ${senderName}
+Status: COMPLETED
+
+The funds are now available in your account.
+
+If you believe this transaction was made in error, please contact support immediately.
+
+Best regards,
+Odiseus Pay Team
+`;
+
+  const html = `
+    <h2>Hello ${name},</h2>
+
+    <p>
+      You have successfully received a
+      <strong style="color:green;">payment</strong>.
+    </p>
+
+    <h3>Transaction Details</h3>
+    <p><strong>Amount Received:</strong> PK ${amount}</p>
+    <p><strong>Sent By:</strong> ${senderName}</p>
+    <p><strong>Status:</strong> COMPLETED</p>
+
+    <p>The funds are now available in your account.</p>
+
+    <p>
+      If you believe this transaction was made in error, please contact
+      support immediately.
+    </p>
+
+    <br />
+
+    <p>
+      Best regards,<br />
+      <strong>Odiseus Pay Team</strong>
+    </p>
+  `;
 
   await sendEmail(userEmail, subject, text, html);
 };
@@ -142,6 +221,7 @@ Odiseus Pay Team
 
 module.exports = {
   sendWelcomeEmail,
-  sendTransactionSuccessEmail,
+  sendTransactionSenderEmail,
+  sendTransactionReceivedEmail,
   sendTransactionFailedEmail,
 };
