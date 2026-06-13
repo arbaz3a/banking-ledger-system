@@ -10,4 +10,10 @@ const authMiddleware = require('../middleware/auth.middleware')
 router.post('/', authMiddleware.authMiddleware, transactionController.createTransaction)
 
 
+/**
+ * - POST /api/transactions/system/initial-funds
+ * - Create initial funds transaction from system user account
+ */
+router.post('/system/initial-funds', authMiddleware.authSystemMiddleware, transactionController.createInitialFundsTransaction)
+
 module.exports = router
