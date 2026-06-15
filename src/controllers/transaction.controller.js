@@ -40,48 +40,16 @@ const createTransaction = async (req, res) => {
     });
   }
 
-  // 2 - idempotency check
-  const existingTransaction = await transactionModel.findOne({
-    idempotencyKey,
-  });
-
-  if (existingTransaction) {
-    if (existingTransaction.status === "COMPLETED") {
-      return res.status(200).json({
-        message: "Transaction already completed successfully",
-        transaction: existingTransaction,
-      });
-    }
-
-    if (existingTransaction.status === "PENDING") {
-      return res.status(200).json({
-        message: "Transaction is currently processing",
-      });
-    }
-
-    if (existingTransaction.status === "FAILED") {
-      return res.status(400).json({
-        message: "Previous transaction failed. Please try again",
-      });
-    }
-
-    if (existingTransaction.status === "REVERSED") {
-      return res.status(400).json({
-        message: "Transaction was reversed. Please initiate a new request",
-      });
-    }
-  }
-
   // 3 - account status validation
   if (senderAccount.status !== "ACTIVE") {
     return res.status(400).json({
-      message: "Sender account is not active",
+      message: "Sender account is not active. Please contact support",
     });
   }
 
   if (receiverAccount.status !== "ACTIVE") {
     return res.status(400).json({
-      message: "Receiver account is not active",
+      message: "Receiver account is not active. Please contact support",
     });
   }
 
@@ -90,7 +58,60 @@ const createTransaction = async (req, res) => {
 
   if (balance < amount) {
     return res.status(400).json({
-      message: `Insufficient balance. Available balance is ${balance}`,
+      message: `Insufficient balance. Your current balance is ${balance} but you are trying to send ${amount}`,
+    });
+  }
+
+  // 2 - idempotency check + 5 - create transaction (PENDING) — session se bahir
+  // race condition fix: first make PENDING record because of to fetch duplicate requests
+  let transaction;
+  try {
+    transaction = await transactionModel.create({
+      fromAccount,
+      toAccount,
+      amount,
+      idempotencyKey,
+      // status: "PENDING" — dont need as we set PENDING default in the model
+    });
+  } catch (err) {
+    if (err.code === 11000) {
+      // duplicate idempotency key
+      const existingTransaction = await transactionModel.findOne({
+        idempotencyKey,
+      });
+
+      if (existingTransaction.status === "COMPLETED") {
+        return res.status(200).json({
+          message:
+            "This transaction has already been completed successfully. No further action is needed",
+          transaction: existingTransaction,
+        });
+      }
+
+      if (existingTransaction.status === "PENDING") {
+        return res.status(200).json({
+          message:
+            "This transaction is currently being processed. Please wait and do not retry",
+        });
+      }
+
+      if (existingTransaction.status === "FAILED") {
+        return res.status(400).json({
+          message:
+            "A previous transaction with this key has failed. Please initiate a new transaction with a different idempotency key",
+        });
+      }
+
+      if (existingTransaction.status === "REVERSED") {
+        return res.status(400).json({
+          message:
+            "This transaction was previously reversed. Please initiate a new transaction with a different idempotency key",
+        });
+      }
+    }
+
+    return res.status(500).json({
+      message: "Unable to initiate transaction. Please try again later",
     });
   }
 
@@ -99,22 +120,8 @@ const createTransaction = async (req, res) => {
 
   try {
     session.startTransaction();
-
-    // 6 - create transaction
-    const transaction = await transactionModel.create(
-      [
-        {
-          fromAccount,
-          toAccount,
-          amount,
-          idempotencyKey,
-        },
-      ],
-      { session },
-    );
     // use to extract object cuz mongo db operaion inside context require session and wrap inside array [] so we use this technique
     // or create simple instance then save middleware to save manual like as we did in createInitialFundsTransaction function
-    const transactionDoc = transaction[0];
 
     // 7 - DEBIT ledger
     await ledgerModel.create(
@@ -122,12 +129,17 @@ const createTransaction = async (req, res) => {
         {
           account: fromAccount,
           amount,
-          transaction: transactionDoc._id,
+          transaction: transaction._id,
           type: "DEBIT",
         },
       ],
       { session },
     );
+
+    // wait
+    await (() => {
+      return new Promise((resolve) => setTimeout(resolve, 15 * 1000));
+    })();
 
     // 8 - CREDIT ledger
     await ledgerModel.create(
@@ -135,7 +147,7 @@ const createTransaction = async (req, res) => {
         {
           account: toAccount,
           amount,
-          transaction: transactionDoc._id,
+          transaction: transaction._id,
           type: "CREDIT",
         },
       ],
@@ -143,8 +155,8 @@ const createTransaction = async (req, res) => {
     );
 
     // 9 - update transaction status
-    transactionDoc.status = "COMPLETED";
-    await transactionDoc.save({ session });
+    transaction.status = "COMPLETED";
+    await transaction.save({ session });
 
     // 10 - commit
     await session.commitTransaction();
@@ -174,17 +186,23 @@ const createTransaction = async (req, res) => {
 
     return res.status(201).json({
       message: "Transaction completed successfully",
-      transaction: transactionDoc,
+      transaction: transaction,
     });
   } catch (error) {
     if (session.inTransaction()) {
       await session.abortTransaction();
     }
 
+    // dont left PENDING status— have to mark FAILED
+    await transactionModel.findByIdAndUpdate(transaction._id, {
+      status: "FAILED",
+    });
+
     // console.error(error);
 
     return res.status(500).json({
-      message: "Transaction failed. Please try again later",
+      message:
+        "Transaction failed due to an internal error. Your balance has not been deducted. Please try again later",
     });
   } finally {
     await session.endSession();
@@ -208,7 +226,7 @@ const createInitialFundsTransaction = async (req, res) => {
 
   if (!receiverAccount) {
     return res.status(400).json({
-      message: "Invalid toAccount",
+      message: "Invalid toAccount. Please provide a valid account ID",
     });
   }
 
@@ -218,17 +236,22 @@ const createInitialFundsTransaction = async (req, res) => {
 
   if (!senderAccount) {
     return res.status(400).json({
-      message: "System user account not found",
+      message: "System user account not found. Please contact support",
     });
   }
 
   // check receiver account status
   if (senderAccount.status !== "ACTIVE") {
-    return res.status(400).json({ message: "Sender account not active" });
+    return res.status(400).json({
+      message: "System sender account is not active. Please contact support",
+    });
   }
 
   if (receiverAccount.status !== "ACTIVE") {
-    return res.status(400).json({ message: "Receiver account not active" });
+    return res.status(400).json({
+      message:
+        "Receiver account is not active. Funds can only be sent to active accounts",
+    });
   }
 
   // creating MongoDB session for transaction, session is like a context or workspace
@@ -279,7 +302,7 @@ const createInitialFundsTransaction = async (req, res) => {
     await session.commitTransaction();
 
     return res.status(201).json({
-      message: "Transaction completed successfully",
+      message: "Initial funds transferred successfully",
       transaction,
     });
   } catch (error) {
@@ -287,7 +310,8 @@ const createInitialFundsTransaction = async (req, res) => {
     await session.abortTransaction();
 
     return res.status(500).json({
-      message: error.message,
+      message:
+        "Failed to transfer initial funds due to an internal error. No balance was deducted. Please try again later",
     });
   } finally {
     // always close the session to free resources
