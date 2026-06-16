@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const userModel = require("../models/user.model");
+const tokenBlackListModel = require("../models/blacklist.model");
 
 const authMiddleware = async (req, res, next) => {
   const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
@@ -10,6 +11,14 @@ const authMiddleware = async (req, res, next) => {
     });
   }
   try {
+    const isBlacklisted = await tokenBlackListModel.findOne({ token });
+
+    if (isBlacklisted) {
+      return res.status(401).json({
+        message: "Token has been revoked (logged out)",
+      });
+    }
+
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     // console.log(decoded)
     const user = await userModel.findById(decoded.userId);
@@ -32,6 +41,14 @@ const authSystemMiddleware = async (req, res, next) => {
     });
   }
   try {
+    const isBlacklisted = await tokenBlackListModel.findOne({ token });
+
+    if (isBlacklisted) {
+      return res.status(401).json({
+        message: "Token has been revoked (logged out)",
+      });
+    }
+
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await userModel.findById(decoded.userId).select("+systemUser");
     if (!user.systemUser) {

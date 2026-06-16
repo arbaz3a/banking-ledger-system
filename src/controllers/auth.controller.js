@@ -1,89 +1,119 @@
-const userModel = require("../models/user.model")
-const jwt = require("jsonwebtoken")
-const emailService = require('../services/email.services')
-
+const userModel = require("../models/user.model");
+const jwt = require("jsonwebtoken");
+const emailService = require("../services/email.services");
+const tokenBlackListModel = require("../models/blacklist.model");
 
 /**
-* - user register controller
-* - POST /api/auth/register
-*/
+ * - user register controller
+ * - POST /api/auth/register
+ */
 async function userRegisterController(req, res) {
-    const { email, password, name } = req.body
+  const { email, password, name } = req.body;
 
-    const isExists = await userModel.findOne({
-        email: email
-    })
+  const isExists = await userModel.findOne({
+    email: email,
+  });
 
-    if (isExists) {
-        return res.status(422).json({
-            message: "User already exists with email.",
-            status: "failed"
-        })
-    }
+  if (isExists) {
+    return res.status(422).json({
+      message: "User already exists with email.",
+      status: "failed",
+    });
+  }
 
-    const user = await userModel.create({
-        email, password, name
-    })
+  const user = await userModel.create({
+    email,
+    password,
+    name,
+  });
 
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: "3d" })
+  const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+    expiresIn: "3d",
+  });
 
-    res.cookie("token", token)
+  res.cookie("token", token);
 
-    res.status(201).json({
-        user: {
-            _id: user._id,
-            email: user.email,
-            name: user.name
-        },
-        token
-    })
+  res.status(201).json({
+    user: {
+      _id: user._id,
+      email: user.email,
+      name: user.name,
+    },
+    token,
+  });
 
-    await emailService.sendWelcomeEmail(user.email, user.name)
+  await emailService.sendWelcomeEmail(user.email, user.name);
 }
-
 
 /**
  * - User Login Controller
  * - POST /api/auth/login
-  */
+ */
 
 async function userLoginController(req, res) {
-    const { email, password } = req.body
+  const { email, password } = req.body;
 
-    const user = await userModel.findOne({ email }).select("+password")
+  const user = await userModel.findOne({ email }).select("+password");
 
-    if (!user) {
-        return res.status(401).json({
-            message: "Email or password is INVALID"
-        })
+  if (!user) {
+    return res.status(401).json({
+      message: "Email or password is INVALID",
+    });
+  }
+
+  const isValidPassword = await user.comparePassword(password);
+
+  if (!isValidPassword) {
+    return res.status(401).json({
+      message: "Email or password is INVALID",
+    });
+  }
+
+  const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+    expiresIn: "3d",
+  });
+
+  res.cookie("token", token);
+
+  res.status(200).json({
+    user: {
+      _id: user._id,
+      email: user.email,
+      name: user.name,
+    },
+    token,
+  });
+}
+
+/**
+ * - User Logout Controller
+ * - POST /api/auth/logout
+ */
+
+async function userLogoutController(req, res) {
+  try {
+    const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
+
+    if (token) {
+      await tokenBlackListModel.create({
+        token,
+      });
     }
 
-    const isValidPassword = await user.comparePassword(password)
-
-    if (!isValidPassword) {
-        return res.status(401).json({
-            message: "Email or password is INVALID"
-        })
-    }
-
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: "3d" })
-
-    res.cookie("token", token)
+    res.clearCookie("token");
 
     res.status(200).json({
-        user: {
-            _id: user._id,
-            email: user.email,
-            name: user.name
-        },
-        token
-    })
-
+      message: "User logged out successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Logout failed",
+    });
+  }
 }
-
-
 
 module.exports = {
-    userRegisterController,
-    userLoginController,
-}
+  userRegisterController,
+  userLoginController,
+  userLogoutController,
+};

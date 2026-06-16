@@ -23,6 +23,9 @@ router.post("/login",authController.userLoginController)
  * Logout your account
  */
 
+router.post("/logout", authController.userLogoutController)
+
+
 
 
 
