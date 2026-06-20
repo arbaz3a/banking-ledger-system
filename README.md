@@ -2,6 +2,53 @@
 
 A robust banking ledger backend system built with Node.js, Express, and MongoDB. It features a double-entry accounting system, secure transactions, and idempotency handling.
 
+## Features
+
+- **Double-Entry Accounting:** Ensures financial integrity where every transaction creates corresponding credit and debit ledger entries.
+- **Dynamic Balances:** Balances are calculated dynamically via aggregation at runtime to prevent synchronization issues.
+- **Idempotent Transactions:** Prevents accidental double charges on network retries.
+- **Concurrency Handling:** Uses MongoDB sessions to guarantee ACID properties during fund transfers.
+- **Authentication:** Secure user authentication using JWT and bcrypt.
+- **Email Notifications:** Automated transaction alerts to sender and receiver via Nodemailer.
+
+## Prerequisites
+
+Before running this project, ensure you have the following installed:
+- [Node.js](https://nodejs.org/) (v16 or higher recommended)
+- [MongoDB](https://www.mongodb.com/) (Local instance or MongoDB Atlas account)
+
+## Getting Started
+
+Follow these steps to set up and run the project locally.
+
+### 1. Install dependencies
+Open your terminal in the project root directory and run:
+```bash
+npm install
+```
+
+### 2. Setup Environment Variables
+Create a `.env` file in the root directory and configure the following required variables:
+
+```env
+PORT=3000
+MONGO_URI=your_mongodb_connection_string
+JWT_SECRET=your_jwt_secret_key
+
+# Email configuration for nodemailer (e.g., Google OAuth)
+CLIENT_ID=your_google_client_id
+CLIENT_SECRET=your_google_client_secret
+REFRESH_TOKEN=your_google_refresh_token
+EMAIL_USER=your_email@gmail.com
+```
+
+### 3. Run the application
+Start the server using the start script (which runs nodemon):
+```bash
+npm start
+```
+The server will start running on `http://localhost:3000`.
+
 ## Technology Stack
 
 - Node.js
