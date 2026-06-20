@@ -319,4 +319,46 @@ const createInitialFundsTransaction = async (req, res) => {
   }
 };
 
-module.exports = { createTransaction, createInitialFundsTransaction };
+const fetchAllUserTransactions = async (req, res) => {
+  const accounts = await accountModel.find({
+    user: req.user._id,
+  });
+
+  const accountIds = accounts.map((acc) => acc._id);
+
+  const transactions = await transactionModel
+    .find({
+      $or: [
+        { fromAccount: { $in: accountIds } },
+        { toAccount: { $in: accountIds } },
+      ],
+    })
+    .populate({
+      path: "fromAccount",
+      select: "user currency status",
+      populate: {
+        path: "user",
+        select: "name email",
+      },
+    })
+    .populate({
+      path: "toAccount",
+      select: "user currency status",
+      populate: {
+        path: "user",
+        select: "name email",
+      },
+    })
+    .sort({ createdAt: -1 });
+
+  return res.status(200).json({
+    message: "Request Accepted",
+    transactions,
+  });
+};
+
+module.exports = {
+  createTransaction,
+  createInitialFundsTransaction,
+  fetchAllUserTransactions,
+};

@@ -16,4 +16,11 @@ router.post('/', authMiddleware.authMiddleware, transactionController.createTran
  */
 router.post('/system/initial-funds', authMiddleware.authSystemMiddleware, transactionController.createInitialFundsTransaction)
 
+/**
+ * - GET /api/transactions/all-user-transactions
+ * - Fetch all user transactions from user account
+ */
+router.get('/all-user-transactions', authMiddleware.authMiddleware, transactionController.fetchAllUserTransactions)
+
+
 module.exports = router

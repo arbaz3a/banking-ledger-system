@@ -32,6 +32,7 @@ accountSchema.index({ user: 1, status: 1 }); // compound indexing cuz mongo run 
 
 accountSchema.methods.getBalance = async function () {
   const balanceData = await ledgerModel.aggregate([
+    // console.log(this._id),
     { $match: { account: this._id } },
     {
       $group: {
