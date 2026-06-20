@@ -11,6 +11,23 @@ A robust banking ledger backend system built with Node.js, Express, and MongoDB.
 - bcryptjs for password hashing
 - nodemailer for email notifications
 
+## Folder Structure
+
+```text
+bankbackend/
+├── .env                  # Environment variables configuration
+├── package.json          # Project dependencies and scripts
+├── server.js             # Application entry point
+└── src/                  # Source code
+    ├── app.js            # Express app setup and middleware
+    ├── config/           # Database and other configurations
+    ├── controllers/      # Route handlers and business logic
+    ├── middleware/       # Custom Express middleware
+    ├── models/           # Mongoose database schemas
+    ├── routes/           # API route definitions
+    └── services/         # External services (e.g., email service)
+```
+
 ## Database Schema
 
 The database relies on a double-entry ledger system to ensure high data integrity.
