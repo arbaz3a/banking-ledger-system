@@ -29,4 +29,16 @@ router.post("/logout", authController.userLogoutController)
 
 
 
+/**
+ * - POST /api/auth/forgot-password
+ * Request a password reset email
+ */
+router.post("/forgot-password", authController.forgotPasswordController)
+
+/**
+ * - POST /api/auth/reset-password/:id/:token
+ * Reset password using the token sent via email
+ */
+router.post("/reset-password/:id/:token", authController.resetPasswordController)
+
 module.exports = router
